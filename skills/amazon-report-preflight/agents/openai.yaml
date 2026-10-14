@@ -1,0 +1,4 @@
+interface:
+  display_name: "Amazon Report Preflight"
+  short_description: "Validate Amazon reports before PPC analysis"
+  default_prompt: "Use $amazon-report-preflight to check these Amazon reports, normalize usable data, and explain any blocked rows or reporting mismatches."
