@@ -1,0 +1,50 @@
+{
+  "checked_on": "2026-10-13",
+  "marketplace": "US",
+  "sources": {
+    "sb": "https://advertising.amazon.com/resources/ad-specs/sponsored-brands-video",
+    "moderation": "https://advertising.amazon.com/library/guides/sponsored-brands-display-ads-moderation",
+    "sd": "https://advertising.amazon.com/library/guides/display-ads-video-creative",
+    "vertical": "https://advertising.amazon.com/API/docs/en-us/guides/sponsored-brands/ads/video",
+    "vertical_eligibility": "https://advertising.amazon.com/resources/whats-new/sponsored-brands-video-introduces-vertical-video-creatives",
+    "listing": "https://sellercentral.amazon.com/help/hub/reference/external/GWJRQF3C34G4PRA2",
+    "listing_fallback": "https://sellercentral.amazon.com/seller-forums/discussions/t/c31a136f-5f8d-4854-83c7-a7b88680d0c0",
+    "safe_area": "https://m.media-amazon.com/images/G/01/AdProductsWebsite/images/AUX/SBv_safe_area_template_NEW.jpg"
+  },
+  "placements": {
+    "sb-video": {
+      "label": "Sponsored Brands horizontal video", "source_ids": ["sb", "moderation"],
+      "aspect": [16, 9], "dimensions": [[1280, 720], [1920, 1080], [3840, 2160]],
+      "min_duration": 6, "max_duration": 45, "max_bytes": 500000000,
+      "extensions": [".mp4", ".mov"], "video_codecs": ["h264", "hevc"],
+      "fps": [23.976, 23.98, 24, 25, 29.97, 29.98, 30],
+      "min_video_bps": 1000000, "recommended_video_bps": 4000000,
+      "audio_codecs": ["aac", "mp3", "pcm_*"], "min_audio_bps": 96000, "min_sample_rate": 44100,
+      "export_fps": "30", "export_video_bps": 6000000, "notes": []
+    },
+    "sd-video": {
+      "label": "Sponsored Display horizontal video", "source_ids": ["moderation", "sd"],
+      "aspect": [16, 9], "min_dimensions": [1920, 1080],
+      "min_duration": 6, "max_duration": 45, "max_bytes": 500000000,
+      "extensions": [".mp4", ".mov"], "container_preference_only": true,
+      "video_codecs": ["h264", "mpeg2video", "mpeg4"], "fps": [23.976, 24, 25, 29.97],
+      "min_video_bps": 1000000, "recommended_video_bps": 4000000,
+      "audio_codecs": ["aac", "pcm_*"], "min_audio_bps": 92000, "recommended_audio_bps": 192000,
+      "sample_rates": [44100, 48000], "export_fps": "30000/1001", "export_video_bps": 8000000,
+      "notes": ["Official Display pages disagree on video (1 vs 4 Mbps) and audio (92 vs 192 kbps) minima. Below the stricter values, flag review; export conservatively above both. Confirm current upload-screen requirements."]
+    },
+    "listing-video": {
+      "label": "Seller Central product listing video", "source_ids": ["listing", "listing_fallback"],
+      "max_bytes": 5000000000, "extensions": [".mp4", ".mov"],
+      "export_fps": "30", "export_video_bps": 6000000,
+      "notes": ["Current Seller Central help requires login/JavaScript. MP4/MOV and 5 GB are supported by an Amazon staff reply (2023) and current search indexing; confirm the live upload screen. Up to 1080p is a recommendation. No verified universal duration, aspect, codec or frame-rate limit is imposed here."]
+    },
+    "sb-store-vertical": {
+      "label": "Sponsored Brands Store vertical video (provisional)", "source_ids": ["vertical", "vertical_eligibility"],
+      "aspect": [9, 16], "dimensions": [[720, 1280], [1080, 1920], [2160, 3840]],
+      "min_duration": 6, "max_duration": 45,
+      "export_fps": "30", "export_video_bps": 6000000,
+      "notes": ["Use only for an eligible Store landing-page campaign. Dimensions and duration are from indexed official API documentation; the full API page was not readable. Confirm file size, codecs, frame rates, audio and safe zones in the current console. Horizontal rules are not assumed to apply."]
+    }
+  }
+}

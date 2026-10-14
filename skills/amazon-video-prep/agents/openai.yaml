@@ -1,0 +1,4 @@
+interface:
+  display_name: "Amazon Video Prep"
+  short_description: "Check and prepare Amazon ad and listing videos"
+  default_prompt: "Use $amazon-video-prep to check my video, export a corrected copy where possible, and review the creative for Amazon."
