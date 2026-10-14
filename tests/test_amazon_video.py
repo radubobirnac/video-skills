@@ -155,6 +155,19 @@ class VideoTests(unittest.TestCase):
         self.assertNotEqual(r["technical_status"], "FAIL")
         self.assertLessEqual(r["input"]["duration"], 45.001)
 
+    def test_accepted_frame_rates_are_kept(self):
+        for placement, rate, expected in [("sb-video", "25", "25/1"), ("sb-video", "24000/1001", "24000/1001"),
+                                          ("listing-video", "25", "25/1"), ("sd-video", "30", "30000/1001")]:
+            with self.subTest(placement=placement, rate=rate):
+                clip = self.root / f"rate-{placement}-{rate.replace('/', '_')}.mp4"
+                video.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"color=c=gray:size=1920x1080:rate={rate}",
+                           "-t", "6", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-threads", "2", str(clip)])
+                out = self.root / f"rate-fixed-{placement}-{rate.replace('/', '_')}"
+                out.mkdir()
+                r = video.fix(clip, video.probe(clip), self.args(placement=placement), out)
+                self.assertEqual(r["input"]["video"]["avg_frame_rate"], expected)
+                self.assertNotEqual(r["technical_status"], "FAIL")
+
     def test_listing_export_preserves_duration_over_ad_limit(self):
         clip = self.root / "listing-61.mp4"
         video.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=green:size=320x180:rate=30",

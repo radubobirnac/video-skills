@@ -445,9 +445,51 @@ class Files(unittest.TestCase):
             qa.read_table(self.p / "input.xlsx")
 
     def test_alias_collision_rejected(self):
-        (self.p / "input.csv").write_text("Product,Entity,Campaign Name,Campaign Name (Informational only)\nSponsored Products,Campaign,a,b\n")
+        (self.p / "input.csv").write_text("Product,Entity,Campaign Name,campaign name\nSponsored Products,Campaign,a,b\n")
         with self.assertRaisesRegex(qa.InputError, "ambiguous"):
             qa.read_table(self.p / "input.csv")
+
+    def amazon_layout(self):
+        # Column layout of an Amazon SP bulk export: names on parent rows, informational copies on child rows.
+        headers = ["Product", "Entity", "Operation", "Campaign ID", "Ad Group ID", "Portfolio ID", "Ad ID", "Keyword ID",
+                   "Product Targeting ID", "Campaign Name", "Ad Group Name", "Campaign Name (Informational only)",
+                   "Ad Group Name (Informational only)", "Portfolio Name (Informational only)", "Start Date", "End Date",
+                   "Targeting Type", "State", "Campaign State (Informational only)", "Ad Group State (Informational only)",
+                   "Daily Budget", "SKU", "ASIN (Informational only)", "Eligibility Status (Informational only)",
+                   "Ad Group Default Bid", "Ad Group Default Bid (Informational only)", "Bid", "Keyword Text", "Match Type",
+                   "Impressions", "Clicks", "Click-through Rate", "Spend", "Sales", "Orders", "Units", "Conversion Rate", "ACOS", "CPC", "ROAS"]
+        def line(**values):
+            return {h: values.get(h.replace(" ", "_").replace("(", "").replace(")", "").replace("-", "_"), "") for h in headers}
+        info = {"Campaign_Name_Informational_only": "Widget Exact"}
+        rows = [
+            line(Product="Sponsored Products", Entity="Campaign", Campaign_ID="111", Campaign_Name="Widget Exact", Targeting_Type="Manual", State="enabled", Daily_Budget="20"),
+            line(Product="Sponsored Products", Entity="Ad Group", Campaign_ID="111", Ad_Group_ID="222", Ad_Group_Name="Exact", State="enabled", Ad_Group_Default_Bid="1", **info),
+            line(Product="Sponsored Products", Entity="Product Ad", Campaign_ID="111", Ad_Group_ID="222", Ad_ID="333", SKU="SKU-1", ASIN_Informational_only="B000000001", State="enabled", Ad_Group_Name_Informational_only="Exact", **info),
+        ]
+        with (self.p / "snapshot.csv").open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(rows)
+
+    def test_amazon_export_layout(self):
+        self.amazon_layout()
+        self.save("changes.csv", [row(2, "Keyword", Operation="Create", Campaign_ID="111", Ad_Group_ID="222", Keyword_Text="new widget", Match_Type="Exact", Bid="1", State="enabled", **{"Campaign Name (Informational only)": "Widget Exact"})])
+        m = manifest()
+        m.update(snapshot="snapshot.csv", changes="changes.csv")
+        (self.p / "manifest.json").write_text(json.dumps(m))
+        result = qa.run(self.p / "manifest.json", self.p / "out")
+        self.assertEqual(result["status"], "READY", result["rows"])
+        self.assertEqual(result["upload"]["rows"], 1)
+
+    def test_informational_name_drift(self):
+        self.amazon_layout()
+        self.save("changes.csv", [row(2, "Keyword", Operation="Create", Campaign_ID="111", Ad_Group_ID="222", Keyword_Text="new widget", Match_Type="Exact", Bid="1", State="enabled", **{"Campaign Name (Informational only)": "Renamed"})])
+        m = manifest()
+        m.update(snapshot="snapshot.csv", changes="changes.csv")
+        (self.p / "manifest.json").write_text(json.dumps(m))
+        result = qa.run(self.p / "manifest.json", self.p / "out")
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertIn("NAME_DRIFT", [i["code"] for r in result["rows"] for i in r["issues"]])
 
     def test_unknown_rule_rejected(self):
         m = manifest()

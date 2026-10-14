@@ -315,6 +315,15 @@ class PreflightTests(unittest.TestCase):
         self.assertEqual(r2["joins"][0]["counts"]["ambiguous_ad_group"], 1)
         self.assertNotIn("resolved_asin", r2["reports"][0]["rows"][0]["values"])
 
+    def test_bulk_informational_asin_join(self):
+        terms = self.file(headers=HEAD + ["Ad Group ID", "Customer Search Term"], rows=[ROW + ["55", "tea"]])
+        head = ["Product", "Entity", "Campaign ID", "Ad Group ID", "Campaign Name", "Campaign Name (Informational only)", "SKU", "ASIN (Informational only)"]
+        bulk = self.file(name="bulk.csv", headers=head, rows=[["Sponsored Products", "Product Ad", ROW[0], "55", "", "Tea", "tea-sku", "b000000001"]])
+        r = self.check([self.spec(terms), self.spec(bulk)])
+        self.assertEqual(r["status"], "READY", self.codes(r))
+        self.assertEqual(r["joins"][0]["counts"]["resolved"], 1)
+        self.assertEqual(r["reports"][0]["rows"][0]["values"]["resolved_asin"], "B000000001")
+
     def test_join_is_scoped_by_market_and_account(self):
         terms = self.file(headers=HEAD + ["Ad Group ID", "Customer Search Term"], rows=[ROW + ["55", "tea"]])
         bulk = self.file(name="bulk.csv", headers=["Entity", "Campaign ID", "Ad Group ID", "ASIN"], rows=[["Product Ad", ROW[0], "55", "B000000001"]])

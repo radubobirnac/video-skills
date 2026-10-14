@@ -317,6 +317,19 @@ def report(path, m, placement, out, transcript=None, no_evidence=False, prefix="
     return r
 
 
+STANDARD_RATES = {"24000/1001": 24000 / 1001, "24": 24, "25": 25, "30000/1001": 30000 / 1001, "30": 30}
+
+
+def export_rate(m, p):
+    """Keep a standard source rate the placement accepts; 24/25 -> 30 fps conversion adds judder."""
+    source = m["fps"]
+    allowed = p.get("fps")
+    for label, value in STANDARD_RATES.items():
+        if source and abs(source - value) <= .011 and (allowed is None or any(abs(value - a) <= .011 for a in allowed)):
+            return label
+    return p["export_fps"]
+
+
 def export_plan(m, args):
     marketplace = getattr(args, "marketplace", "US")
     p = placement_profile(args.placement, marketplace)
@@ -356,17 +369,19 @@ def export_plan(m, args):
     filters = []
     if m["video"].get("field_order") not in [None, "unknown", "progressive"]:
         filters.append("yadif")
+    rate = export_rate(m, p)
     filters += ["scale=trunc(iw*sar/2)*2:ih", "setsar=1", f"scale={target[0]}:{target[1]}:force_original_aspect_ratio=increase",
-                f"crop={target[0]}:{target[1]}", "setsar=1", f"fps={p['export_fps']}", "format=yuv420p"]
+                f"crop={target[0]}:{target[1]}", "setsar=1", f"fps={rate}", "format=yuv420p"]
     # A 45 s source at 29.97 fps can otherwise become 45.011 s after rounding.
-    fps = ratio(p["export_fps"])
+    fps = ratio(rate)
     frames = math.ceil(duration * fps - 1e-8)
     if p.get("max_duration"):
         frames = min(frames, math.floor(p["max_duration"] * fps + 1e-8))
     if p.get("min_duration"):
         frames = max(frames, math.ceil(p["min_duration"] * fps - 1e-8))
     return {"marketplace": marketplace, "start": args.start, "duration": duration, "target_dimensions": target, "upscaled": upscale,
-            "resize": args.resize, "fps": p["export_fps"], "video_bps": bps, "filters": filters,
+            "resize": args.resize, "fps": rate, "source_fps_kept": abs((m["fps"] or 0) - fps) <= .011,
+            "video_bps": bps, "filters": filters,
             "max_video_frames": frames, "frame_quantized_duration": frames / fps,
             "notes": ["Rescaling does not restore missing detail.", "First video/audio streams only; review converted audio and composition.",
                       "Standard metadata is copied; required XMP/synthetic-performer labels must be verified/reapplied after encoding when applicable."]}

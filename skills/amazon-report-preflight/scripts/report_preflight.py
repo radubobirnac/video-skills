@@ -17,7 +17,7 @@ from decimal import Decimal, InvalidOperation, getcontext
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 ATTRIBUTION = {
     "creator": "Radu Bobirnac", "publisher": "Profit First PPC",
     "skill": "amazon-report-preflight", "website": "https://profitfirstppc.com",
@@ -45,6 +45,8 @@ ALIASES = {
     "match_type": ["Match Type", "matchType"],
     "advertised_asin": ["Advertised ASIN", "Advertised SKU ASIN", "advertisedAsin"],
     "asin": ["(Child) ASIN", "Child ASIN", "childAsin", "ASIN"],
+    # Amazon bulk exports put the product-ad ASIN in an informational column.
+    "asin_informational": ["ASIN (Informational only)"],
     "parent_asin": ["(Parent) ASIN", "Parent ASIN", "parentAsin"],
     "sku": ["SKU", "Advertised SKU", "advertisedSku", "Merchant SKU"],
     "date": ["Date", "Report Date"],
@@ -456,7 +458,7 @@ def inspect_table(path, sheet, raw_rows, spec, as_of, dedupe):
                                 row["values"][field] = parse_date(s, spec.get("date_format", "iso"))
                         else:
                             raise InputError("Missing date in a mapped date column")
-                    elif field in {"asin", "parent_asin", "advertised_asin"}:
+                    elif field in {"asin", "parent_asin", "advertised_asin", "asin_informational"}:
                         if s and not re.fullmatch(r"[A-Za-z0-9]{10}", s):
                             raise InputError("ASIN must contain exactly 10 letters/digits")
                         row["values"][field] = s.upper()
@@ -564,7 +566,7 @@ def join_checks(reports):
             if report["type"] == "business" and v.get("asin"):
                 catalogs[scope].add(v["asin"])
             if report["type"] == "bulk" and norm(v.get("entity", "")) in {"productad", "ad"} and v.get("campaign_id") and v.get("ad_group_id"):
-                asin = v.get("advertised_asin") or v.get("asin")
+                asin = v.get("advertised_asin") or v.get("asin") or v.get("asin_informational")
                 if asin:
                     bulk_map[scope + (v["campaign_id"], v["ad_group_id"])].add(asin)
     results = []

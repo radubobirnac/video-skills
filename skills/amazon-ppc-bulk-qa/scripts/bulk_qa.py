@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 ATTRIBUTION = {
     "creator": "Radu Bobirnac", "publisher": "Profit First PPC",
     "skill": "amazon-ppc-bulk-qa", "website": "https://profitfirstppc.com",
@@ -34,8 +34,11 @@ READONLY = {"Impressions", "Clicks", "Spend", "Sales", "Orders", "Units",
 IDS = {x for x in CANON if x.endswith(" ID")}
 ALIASES = {x.casefold(): x for x in CANON + sorted(READONLY)}
 ALIASES.update({x.casefold(): x for x in ["Account ID", "Profile ID", "Marketplace", "Currency", "Campaign State", "Ad Group State"]})
-for _name in ["Campaign Name", "Ad Group Name", "Campaign State", "Ad Group State"]:
-    ALIASES[(_name + " (Informational only)").casefold()] = _name
+# Amazon exports carry both "Campaign Name" (set on campaign rows) and
+# "Campaign Name (Informational only)" (set on child rows); keep them distinct.
+INFO = " (Informational only)"
+for _name in ["Campaign Name", "Ad Group Name", "Campaign State", "Ad Group State", "ASIN"]:
+    ALIASES[(_name + INFO).casefold()] = _name + INFO
 DEFAULTS = {"new_exact_only": True, "max_new_exacts_per_campaign": 25,
             "snapshot_max_age_hours": 48, "delivery_max_age_hours": 24,
             "max_bid_change_pct": 25, "max_budget_change_pct": 25,
@@ -247,6 +250,14 @@ def blocked_by(term, negative):
     return mt == "negative phrase" and bool(b) and f" {b} " in f" {a} "
 
 
+def asin_of(row):
+    return (row.get("ASIN") or row.get("ASIN" + INFO)).strip().upper()
+
+
+def name_of(row, key):
+    return row.get(key) or row.get(key + INFO)
+
+
 def same_value(key, a, b):
     if key in {"State", "Match Type", "Targeting Type", "Product", "Entity"}:
         return norm(a) == norm(b)
@@ -307,10 +318,10 @@ def analyze(snapshot, proposals, manifest, headers=None):
     products = defaultdict(set)
     enabled_products = defaultdict(set)
     for ad in ads:
-        if norm(ad.get("State")) != "archived" and ad.get("ASIN"):
-            products[ad.get("Ad Group ID")].add(ad.get("ASIN").upper())
-        if norm(ad.get("State")) == "enabled" and ad.get("ASIN"):
-            enabled_products[ad.get("Ad Group ID")].add(ad.get("ASIN").upper())
+        if norm(ad.get("State")) != "archived" and asin_of(ad):
+            products[ad.get("Ad Group ID")].add(asin_of(ad))
+        if norm(ad.get("State")) == "enabled" and asin_of(ad):
+            enabled_products[ad.get("Ad Group ID")].add(asin_of(ad))
 
     def active_destination(row):
         cid, gid = row.get("Campaign ID"), row.get("Ad Group ID")
@@ -371,12 +382,14 @@ def analyze(snapshot, proposals, manifest, headers=None):
         if any(parent and norm(parent.get("State")) == "archived" for parent in [camp, group]):
             row.add("ARCHIVED_PARENT", "These operations cannot target an archived campaign/ad group.")
         for key, baseline in [("Campaign Name", camp), ("Ad Group Name", group)]:
-            if row.get(key) and (baseline is None or row.get(key) != baseline.get(key)):
-                row.add("NAME_DRIFT", f"{key} differs from the snapshot; names are preserved exactly.")
+            for column in [key, key + INFO]:
+                if row.get(column) and (baseline is None or row.get(column) != name_of(baseline, key)):
+                    row.add("NAME_DRIFT", f"{column} differs from the snapshot; names are preserved exactly.")
         row.payload = {"Product": "Sponsored Products", "Entity": entity, "Operation": operation, "Campaign ID": cid}
         if gid:
             row.payload["Ad Group ID"] = gid
-        allowed = {"Product", "Entity", "Operation", "Campaign ID", "Ad Group ID", "Campaign Name", "Ad Group Name"}
+        allowed = {"Product", "Entity", "Operation", "Campaign ID", "Ad Group ID", "Campaign Name", "Ad Group Name",
+                   "Campaign Name" + INFO, "Ad Group Name" + INFO}
         baseline = None
         if operation == "Create":
             if row.get("Keyword ID"):
