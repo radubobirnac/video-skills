@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import fnmatch
 import json
 import math
@@ -18,12 +19,29 @@ PROFILE_PATH = Path(__file__).resolve().parents[1] / "references" / "profiles.js
 CATALOG = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
 CREATIVE_ITEMS = ["Opening and product visibility", "Sound-off comprehension", "Text legibility and timing",
                   "Placement-specific safe zones", "Product and ASIN relevance", "Ending and pacing",
-                  "Claims and substantiation", "Placement/category content policies", "Audio and US language",
+                  "Claims and substantiation", "Placement/category content policies", "Audio and marketplace language",
+                  "Local landing page, units and currency", "Content provenance and required metadata",
                   "Crop, bars and source quality"]
 
 
 class VideoError(Exception):
     pass
+
+
+def placement_profile(placement, marketplace="US"):
+    if marketplace not in CATALOG["marketplaces"]:
+        raise VideoError(f"Unsupported marketplace {marketplace!r}; choose US, UK or CA.")
+    p = copy.deepcopy(CATALOG["placements"][placement])
+    p.update(copy.deepcopy(CATALOG["marketplaces"][marketplace].get("placement_overrides", {}).get(placement, {})))
+    return p
+
+
+def source_links(placement, marketplace):
+    market = CATALOG["marketplaces"][marketplace]
+    sources = {**CATALOG["sources"], **market.get("source_overrides", {})}
+    ids = placement_profile(placement, marketplace)["source_ids"]
+    ids = ids + (["listing_guide", "synthetic_people"] if placement == "listing-video" else ["languages"])
+    return {k: sources[k] for k in ids}
 
 
 def run(cmd, timeout=600):
@@ -77,11 +95,13 @@ def probe(path):
             "sar": sar, "rotation": rotation, "fps": ratio(v.get("avg_frame_rate")),
             "nominal_fps": ratio(v.get("r_frame_rate")), "video": v, "audio": a,
             "audio_stream_count": len(audios), "video_stream_count": len(videos),
-            "format_name": raw.get("format", {}).get("format_name", "")}
+            "format_name": raw.get("format", {}).get("format_name", ""),
+            "format_tags": raw.get("format", {}).get("tags", {})}
 
 
-def evaluate(m, placement):
-    p = CATALOG["placements"][placement]
+def evaluate(m, placement, marketplace="US", content_language=None):
+    p = placement_profile(placement, marketplace)
+    market = CATALOG["marketplaces"][marketplace]
     checks = []
 
     def add(key, status, detail):
@@ -89,7 +109,13 @@ def evaluate(m, placement):
 
     for i, note in enumerate(p.get("notes", [])):
         add(f"source_note_{i}", "unverified", note)
-    age = (date.today() - date.fromisoformat(CATALOG["checked_on"])).days
+    add("marketplace_localization", "unverified", " ".join(market["review_notes"]) + " No automatic localization or landing-page validation was performed.")
+    add("language_review", "unverified", f"Target locale {market['default_locale']}; declared content language {content_language or 'not supplied'}. Declaration is not detected/verified language. Review speech, on-screen text and any subtitles for the actual placement.")
+    if content_language and placement != "listing-video" and content_language.lower().split("-")[0] != "en":
+        add("declared_ad_language", "warning", "Primary ad language is English in the checked country guidance. Verify translated captions/visible explanation and placement eligibility; a language declaration alone cannot establish compliance.")
+    if placement == "listing-video":
+        add("required_metadata", "unverified", "Review whether photorealistic AI-generated people require synthetic-performer XMP labeling. Standard metadata is copied during export, but XMP preservation or correct tagging is not certified; verify/reapply using an IPTC-compatible tool when applicable.")
+    age = (date.today() - date.fromisoformat(market["checked_on"])).days
     if age > 90:
         add("dated_rules", "warning", f"Profile is {age} days old. Recheck official sources.")
     if "max_bytes" in p:
@@ -235,8 +261,9 @@ def evidence(path, m, out, placement):
     return records, None
 
 
-def report(path, m, placement, out, transcript=None, no_evidence=False, prefix=""):
-    checks = evaluate(m, placement)
+def report(path, m, placement, out, transcript=None, no_evidence=False, prefix="", marketplace="US", content_language=None):
+    checks = evaluate(m, placement, marketplace, content_language)
+    market = CATALOG["marketplaces"][marketplace]
     evidence_note = None
     if not no_evidence:
         events = black_intervals(path, m)
@@ -246,13 +273,15 @@ def report(path, m, placement, out, transcript=None, no_evidence=False, prefix="
     flags = transcript_flags(transcript)
     if flags:
         checks.append({"id": "transcript_flags", "status": "warning", "detail": "Claim/ad-policy-like phrases need contextual review; no text has been automatically cleared.", "matches": flags})
-    r = {"placement": placement, "marketplace": "US", "requirements_checked_on": CATALOG["checked_on"],
+    r = {"placement": placement, "marketplace": marketplace, "store": market["store"], "target_locale": market["default_locale"],
+         "declared_content_language": content_language, "requirements_checked_on": market["checked_on"],
          "technical_status": technical_status(checks), "creative_status": "unreviewed", "approval_status": "not_assessed",
          "input": m, "checks": checks, "evidence_note": evidence_note, "transcript_supplied": bool(transcript),
-         "sources": {k: CATALOG["sources"][k] for k in CATALOG["placements"][placement]["source_ids"]}}
+         "sources": source_links(placement, marketplace)}
     (out / f"{prefix}report.json").write_text(json.dumps(r, indent=2), encoding="utf-8")
-    lines = [f"# {CATALOG['placements'][placement]['label']}", "", f"Technical status: **{r['technical_status']}**",
-             "Creative status: **unreviewed**. Amazon approval is not assessed.", "", f"Requirements snapshot: {CATALOG['checked_on']} · US", "",
+    lines = [f"# {market['label']} · {CATALOG['placements'][placement]['label']}", "", f"Technical status: **{r['technical_status']}**",
+             "Creative status: **unreviewed**. Amazon approval is not assessed.", "", f"Requirements snapshot: {market['checked_on']} · {marketplace} · {market['store']}",
+             f"Target locale: {market['default_locale']}. Declared content language: {content_language or 'not supplied'} (unverified).", "",
              f"Video: {m['width']}×{m['height']} · {m['duration']:.3f} s · {m['fps']} fps · {m['bytes']} bytes", "",
              "| Check | Result | Detail |", "| --- | --- | --- |"]
     for c in checks:
@@ -271,7 +300,8 @@ def report(path, m, placement, out, transcript=None, no_evidence=False, prefix="
     lines += ["", "## Official references", ""] + [f"- [{k}]({u})" for k, u in r["sources"].items()]
     (out / f"{prefix}report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     if not (out / "creative-review.md").exists():
-        review = ["# Creative review", "", "Status: unreviewed. Replace each unverified entry with timestamped evidence after inspection.", "",
+        review = [f"# Creative review — {market['label']} ({marketplace})", "", "Status: unreviewed. Replace each unverified entry with timestamped evidence after inspection.",
+                  f"Target locale: {market['default_locale']}; content declaration: {content_language or 'not supplied'} (unverified).", " ".join(market["review_notes"]), "",
                   "| Item | Result | Evidence / action |", "| --- | --- | --- |"]
         review += [f"| {item} | unverified | |" for item in CREATIVE_ITEMS]
         (out / "creative-review.md").write_text("\n".join(review) + "\n", encoding="utf-8")
@@ -279,7 +309,8 @@ def report(path, m, placement, out, transcript=None, no_evidence=False, prefix="
 
 
 def export_plan(m, args):
-    p = CATALOG["placements"][args.placement]
+    marketplace = getattr(args, "marketplace", "US")
+    p = placement_profile(args.placement, marketplace)
     duration = args.duration if args.duration is not None else m["duration"] - args.start
     if args.start < 0 or duration <= 0 or args.start + duration > m["duration"] + .001:
         raise VideoError("Select a positive excerpt entirely within the source video.")
@@ -325,10 +356,11 @@ def export_plan(m, args):
         frames = min(frames, math.floor(p["max_duration"] * fps + 1e-8))
     if p.get("min_duration"):
         frames = max(frames, math.ceil(p["min_duration"] * fps - 1e-8))
-    return {"start": args.start, "duration": duration, "target_dimensions": target, "upscaled": upscale,
+    return {"marketplace": marketplace, "start": args.start, "duration": duration, "target_dimensions": target, "upscaled": upscale,
             "resize": args.resize, "fps": p["export_fps"], "video_bps": bps, "filters": filters,
             "max_video_frames": frames, "frame_quantized_duration": frames / fps,
-            "notes": ["Rescaling does not restore missing detail.", "First video/audio streams only; review converted audio and composition."]}
+            "notes": ["Rescaling does not restore missing detail.", "First video/audio streams only; review converted audio and composition.",
+                      "Standard metadata is copied; required XMP/synthetic-performer labels must be verified/reapplied after encoding when applicable."]}
 
 
 def fix(path, m, args, out):
@@ -339,7 +371,7 @@ def fix(path, m, args, out):
            "-map", f"0:{m['video']['index']}"]
     if m["audio"]:
         cmd += ["-map", f"0:{m['audio']['index']}"]
-    cmd += ["-map_metadata", "-1", "-vf", ",".join(plan["filters"]), "-c:v", "libx264", "-profile:v", "main", "-preset", "fast",
+    cmd += ["-map_metadata", "0", "-vf", ",".join(plan["filters"]), "-c:v", "libx264", "-profile:v", "main", "-preset", "fast",
             "-b:v", str(plan["video_bps"]), "-minrate", str(plan["video_bps"]), "-maxrate", str(plan["video_bps"]),
             "-bufsize", str(plan["video_bps"] * 2), "-x264-params", "nal-hrd=cbr:force-cfr=1", "-threads", "2"]
     if m["audio"]:
@@ -353,7 +385,8 @@ def fix(path, m, args, out):
     corrected = probe(target)
     evidence_dir = out / "corrected-evidence"
     evidence_dir.mkdir()
-    r = report(target, corrected, args.placement, evidence_dir, args.transcript, args.no_evidence)
+    r = report(target, corrected, args.placement, evidence_dir, args.transcript, args.no_evidence,
+               marketplace=getattr(args, "marketplace", "US"), content_language=getattr(args, "content_language", None))
     r["evidence_directory"] = "corrected-evidence"
     (out / "corrected-report.json").write_text(json.dumps(r, indent=2), encoding="utf-8")
     text = (evidence_dir / "report.md").read_text(encoding="utf-8")
@@ -367,6 +400,8 @@ def main(argv=None):
     parser.add_argument("action", choices=["check", "fix"])
     parser.add_argument("input", type=Path)
     parser.add_argument("--placement", required=True, choices=list(CATALOG["placements"]))
+    parser.add_argument("--marketplace", type=str.upper, choices=list(CATALOG["marketplaces"]), default="US", help="Destination marketplace; defaults to US.")
+    parser.add_argument("--content-language", help="Optional declared source language, e.g. en-GB, en-CA or fr-CA; not automatic language detection.")
     parser.add_argument("--out", required=True, type=Path, help="New output directory; existing directories are refused.")
     parser.add_argument("--transcript", type=Path, help="Existing UTF-8 txt/SRT/VTT; heuristic flags only.")
     parser.add_argument("--start", type=float, default=0)
@@ -390,10 +425,11 @@ def main(argv=None):
             args.transcript = args.transcript.resolve(strict=True)
         m = probe(path)
         out.mkdir(parents=True, exist_ok=False)
-        r = report(path, m, args.placement, out, args.transcript, args.no_evidence)
+        r = report(path, m, args.placement, out, args.transcript, args.no_evidence,
+                   marketplace=args.marketplace, content_language=args.content_language)
         if args.action == "fix":
             r = fix(path, m, args, out)
-        print(json.dumps({"technical_status": r["technical_status"], "creative_status": "unreviewed", "output_directory": str(out)}))
+        print(json.dumps({"marketplace": args.marketplace, "technical_status": r["technical_status"], "creative_status": "unreviewed", "output_directory": str(out)}))
         return 1 if r["technical_status"] == "FAIL" else 0
     except (VideoError, OSError, ValueError, json.JSONDecodeError) as exc:
         # Never write into an output folder that predates this invocation.

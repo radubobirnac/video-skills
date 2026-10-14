@@ -1,6 +1,6 @@
-# US placement requirements
+# Placement requirements — US, UK and Canada
 
-Snapshot checked 2026-10-13. Recheck before live submission preparation. Keep `profiles.json` aligned with evidence; do not substitute a generic "Amazon video" profile.
+Snapshot checked 2026-10-13. Recheck before live submission preparation. Keep `profiles.json` aligned with evidence; do not substitute a generic "Amazon video" profile. Read [marketplace review](marketplace-review.md) for UK/Canadian source links, language and listing-workflow caveats. Localized UK/Canada Sponsored Brands specifications match the core horizontal profile; Display retains the documented source conflict.
 
 ## Sources
 
@@ -27,6 +27,8 @@ Horizontal SB audio can be absent. When present: AAC, MP3 or PCM; mono/stereo; a
 The Display moderation table uses 4 Mbps video and 192 kbps audio, while the Display creative guide uses 1 Mbps and 92 kbps. The latter labels both 6 and 45 seconds "Minimum duration". Use the moderation table for the 45-second maximum. Treat stricter bitrates as conservative review/export targets, not unquestionable rejection rules. MP4/MOV is an exporter preference for Display rather than a sourced exhaustive container list.
 
 Seller help bodies were inaccessible without JavaScript/authentication. The 5 GB and format values have indexed current-help support and an older Amazon staff reply. Mark for live-console verification rather than claiming full current help access. Higher-than-1080p is a compatibility recommendation, not certain rejection.
+
+The current indexed shoppable guide also lists a 1–12 minute range for that workflow. Do not assume the same duration rule applies to every listing upload flow without console verification. Each marketplace profile carries this uncertainty; no unverified duration limit is enforced automatically.
 
 Use decimal MB/GB. Variable-frame-rate suspicion and missing bitrate metadata are review items. Encoded dimensions do not prove detail: do not call upscaled 360p footage high quality.
 

@@ -13,6 +13,8 @@ Fill generated `creative-review.md` using source/corrected evidence. Mark each i
 | Claims | Exact wording, substantiation and category policy | Request evidence for efficacy, superiority, health and quantified claims |
 | Ad restrictions | Reviews/stars, deals, Amazon branding, urgency, inappropriate content | Consult current video/category policies; apply ad rules only to ads |
 | Audio and language | Audio, transcript, marketplace language and sound quality | Mark unreviewed when tools/transcript are unavailable |
+| Localization | UK/Canadian wording, store product/ASIN, relevant units/currency and local landing-page claims | Use references/marketplace-review.md; a declared source language does not verify content |
+| Provenance metadata | Whether listing footage contains photorealistic AI-generated people and requires XMP tagging | Verify/reapply applicable disclosure metadata after export; ffmpeg does not certify XMP |
 | Crop and quality | Product/text after resizing, detail, bars and motion | Rescaling does not restore detail; black detection is heuristic |
 
 Beverage footage can communicate flavor, culture and enjoyment. Do not force a medical or problem-solution story on a lifestyle product. Separate policy issues from subjective suggestions.

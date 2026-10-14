@@ -34,7 +34,7 @@ class VideoTests(unittest.TestCase):
 
     def args(self, **kwargs):
         a = dict(placement="sb-video", start=0, duration=None, resize="preserve", allow_upscale=False,
-                 transcript=None, no_evidence=True)
+                 transcript=None, no_evidence=True, marketplace="US", content_language=None)
         a.update(kwargs)
         return argparse.Namespace(**a)
 
@@ -180,6 +180,66 @@ class VideoTests(unittest.TestCase):
         r = video.fix(clip, m, self.args(placement="listing-video"), out)
         self.assertEqual([r["input"]["width"], r["input"]["height"]], [720, 1280])
         self.assertEqual(r["input"]["rotation"], 0)
+
+    def test_marketplace_sources_use_correct_country(self):
+        for market, prefix, seller in [("UK", "en-gb", "sellercentral.amazon.co.uk"), ("CA", "en-ca", "sellercentral.amazon.ca")]:
+            with self.subTest(market=market):
+                self.assertIn(f"/{prefix}/", video.source_links("sb-video", market)["sb"])
+                self.assertIn(f"/{prefix}/", video.source_links("sd-video", market)["sd"])
+                self.assertIn(seller, video.source_links("listing-video", market)["listing"])
+
+    def test_marketplace_overrides_do_not_mutate_shared_rules(self):
+        ca = video.placement_profile("listing-video", "CA")
+        ca["notes"].append("temporary test change")
+        self.assertNotIn("temporary test change", video.placement_profile("listing-video", "US")["notes"])
+        self.assertNotIn("temporary test change", video.placement_profile("listing-video", "CA")["notes"])
+
+    def test_uk_and_canada_corrected_exports_keep_marketplace(self):
+        for market, locale, store in [("UK", "en-GB", "amazon.co.uk"), ("CA", "en-CA", "amazon.ca")]:
+            with self.subTest(market=market):
+                out = self.root / f"fixed-{market}"
+                out.mkdir()
+                r = video.fix(self.clip, self.metadata, self.args(marketplace=market, content_language=locale), out)
+                self.assertNotEqual(r["technical_status"], "FAIL")
+                self.assertEqual(r["marketplace"], market)
+                self.assertEqual(r["store"], store)
+                self.assertEqual(r["target_locale"], locale)
+                self.assertEqual(r["declared_content_language"], locale)
+                plan = json.loads((out / "export-plan.json").read_text())
+                self.assertEqual(plan["marketplace"], market)
+                self.assertIn(locale, (out / "corrected-evidence" / "creative-review.md").read_text())
+
+    def test_french_canadian_declaration_is_not_auto_approved(self):
+        checks = {c["id"]: c for c in video.evaluate(self.metadata, "sb-video", "CA", "fr-CA")}
+        self.assertEqual(checks["declared_ad_language"]["status"], "warning")
+        self.assertEqual(checks["language_review"]["status"], "unverified")
+        self.assertIn("not detected/verified", checks["language_review"]["detail"])
+
+    def test_cli_default_us_and_case_insensitive_country_selection(self):
+        for flag, expected in [([], "US"), (["--marketplace", "uk"], "UK"), (["--marketplace", "ca"], "CA")]:
+            with self.subTest(market=expected):
+                out = self.root / f"cli-{expected}"
+                rc = video.main(["check", str(self.clip), "--placement", "sb-video", "--out", str(out), "--no-evidence"] + flag)
+                self.assertEqual(rc, 1)  # Existing fixture has known audio failures.
+                report = json.loads((out / "report.json").read_text())
+                self.assertEqual(report["marketplace"], expected)
+
+    def test_unsupported_marketplace_refused_before_writing(self):
+        out = self.root / "unsupported"
+        with self.assertRaises(SystemExit) as exc:
+            video.main(["check", str(self.clip), "--placement", "sb-video", "--marketplace", "DE", "--out", str(out)])
+        self.assertEqual(exc.exception.code, 2)
+        self.assertFalse(out.exists())
+
+    def test_standard_metadata_preserved_and_xmp_not_certified(self):
+        clip = self.root / "with-title.mp4"
+        video.run(["ffmpeg", "-v", "error", "-i", str(self.clip), "-c", "copy", "-metadata", "title=Original title", str(clip)])
+        out = self.root / "metadata-fixed"
+        out.mkdir()
+        r = video.fix(clip, video.probe(clip), self.args(placement="listing-video", marketplace="UK"), out)
+        self.assertEqual(r["input"]["format_tags"].get("title"), "Original title")
+        checks = {c["id"]: c for c in r["checks"]}
+        self.assertEqual(checks["required_metadata"]["status"], "unverified")
 
 
 if __name__ == "__main__":
