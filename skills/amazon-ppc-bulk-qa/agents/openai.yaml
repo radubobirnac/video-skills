@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPC Bulk File QA"
+  short_description: "Check Amazon PPC bulk changes before upload"
+  default_prompt: "Use $amazon-ppc-bulk-qa to check these proposed changes against a fresh Amazon bulk export, preserve names and IDs, and prepare a checked upload and change list."
