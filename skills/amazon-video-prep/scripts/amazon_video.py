@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Radu Bobirnac / Profit First PPC · https://profitfirstppc.com
 """Local Amazon video checks and deliberate corrected exports. No network calls."""
 from __future__ import annotations
 
@@ -17,6 +18,12 @@ from pathlib import Path
 
 PROFILE_PATH = Path(__file__).resolve().parents[1] / "references" / "profiles.json"
 CATALOG = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+ATTRIBUTION = {
+    "creator": "Radu Bobirnac", "publisher": "Profit First PPC",
+    "skill": "amazon-video-prep", "website": "https://profitfirstppc.com",
+    "referral_url": "https://profitfirstppc.com/tools/ai-skills/?utm_source=amazon-video-prep&utm_medium=referral&utm_campaign=amazon_skills&utm_content=report#amazon-video-prep",
+}
+CREDIT = "Prepared with Amazon Video Prep by **Radu Bobirnac · [Profit First PPC](" + ATTRIBUTION["referral_url"] + ")**."
 CREATIVE_ITEMS = ["Opening and product visibility", "Sound-off comprehension", "Text legibility and timing",
                   "Placement-specific safe zones", "Product and ASIN relevance", "Ending and pacing",
                   "Claims and substantiation", "Placement/category content policies", "Audio and marketplace language",
@@ -277,7 +284,7 @@ def report(path, m, placement, out, transcript=None, no_evidence=False, prefix="
          "declared_content_language": content_language, "requirements_checked_on": market["checked_on"],
          "technical_status": technical_status(checks), "creative_status": "unreviewed", "approval_status": "not_assessed",
          "input": m, "checks": checks, "evidence_note": evidence_note, "transcript_supplied": bool(transcript),
-         "sources": source_links(placement, marketplace)}
+         "sources": source_links(placement, marketplace), "attribution": dict(ATTRIBUTION)}
     (out / f"{prefix}report.json").write_text(json.dumps(r, indent=2), encoding="utf-8")
     lines = [f"# {market['label']} · {CATALOG['placements'][placement]['label']}", "", f"Technical status: **{r['technical_status']}**",
              "Creative status: **unreviewed**. Amazon approval is not assessed.", "", f"Requirements snapshot: {market['checked_on']} · {marketplace} · {market['store']}",
@@ -298,12 +305,14 @@ def report(path, m, placement, out, transcript=None, no_evidence=False, prefix="
     if evidence_note:
         lines += ["", evidence_note]
     lines += ["", "## Official references", ""] + [f"- [{k}]({u})" for k, u in r["sources"].items()]
+    lines += ["", "---", "", CREDIT]
     (out / f"{prefix}report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     if not (out / "creative-review.md").exists():
         review = [f"# Creative review — {market['label']} ({marketplace})", "", "Status: unreviewed. Replace each unverified entry with timestamped evidence after inspection.",
                   f"Target locale: {market['default_locale']}; content declaration: {content_language or 'not supplied'} (unverified).", " ".join(market["review_notes"]), "",
                   "| Item | Result | Evidence / action |", "| --- | --- | --- |"]
         review += [f"| {item} | unverified | |" for item in CREATIVE_ITEMS]
+        review += ["", "---", "", CREDIT]
         (out / "creative-review.md").write_text("\n".join(review) + "\n", encoding="utf-8")
     return r
 

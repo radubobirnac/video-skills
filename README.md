@@ -2,6 +2,8 @@
 
 Reusable skills for Amazon video preparation, report validation and PPC bulk file QA (SKILL.md format, works with Claude and Codex).
 
+Created by **Radu Bobirnac · [Profit First PPC](https://profitfirstppc.com/tools/ai-skills/?utm_source=github&utm_medium=referral&utm_campaign=amazon_skills&utm_content=repository)**.
+
 ## Available skills
 
 | Skill | Purpose | Requirements |
@@ -127,6 +129,12 @@ The bulk QA suite contains 77 synthetic regression tests, including two-phase ha
 The report tests generate synthetic CSV/TSV/XLSX fixtures in temporary directories; openpyxl enables the XLSX cases. No client reports are bundled.
 
 Tests generate synthetic media in a temporary directory; no client or copyrighted clips are bundled. Python, ffmpeg and ffprobe are required. Run the full suite after changing rules or encoding behavior.
+
+## Creator credit and referral links
+
+Skill instructions and generated Markdown reports credit Radu Bobirnac / Profit First PPC and link to the [AI skills page](https://profitfirstppc.com/tools/ai-skills/?utm_source=github&utm_medium=referral&utm_campaign=amazon_skills&utm_content=repository). JSON reports include attribution metadata. The bulk upload workbook carries creator/source document properties; its Amazon upload rows remain unchanged by branding. Please retain the visible credit when sharing reports.
+
+The scripts make no tracking requests. Fixed UTM labels identify the skill and link type when someone follows the website link; optional website analytics runs only after consent. This measures consenting referral visits, not offline skill executions. Attribution is removable in modified copies; no claim of an indelible watermark is made.
 
 ## Contributing
 

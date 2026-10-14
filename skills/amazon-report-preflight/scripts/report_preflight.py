@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Radu Bobirnac / Profit First PPC · https://profitfirstppc.com
 """Local, read-only Amazon export validation. Python 3.10+, optional openpyxl."""
 from __future__ import annotations
 
@@ -17,6 +18,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 VERSION = "1.0.0"
+ATTRIBUTION = {
+    "creator": "Radu Bobirnac", "publisher": "Profit First PPC",
+    "skill": "amazon-report-preflight", "website": "https://profitfirstppc.com",
+    "referral_url": "https://profitfirstppc.com/tools/ai-skills/?utm_source=amazon-report-preflight&utm_medium=referral&utm_campaign=amazon_skills&utm_content=report#amazon-report-preflight",
+}
+CREDIT = "Prepared with Amazon Report Preflight by **Radu Bobirnac · [Profit First PPC](" + ATTRIBUTION["referral_url"] + ")**."
 getcontext().prec = 50
 MAX_BYTES = 100 * 1024 * 1024
 MAX_ROWS = 250_000
@@ -626,6 +633,7 @@ def safe_md(value):
 
 
 def write_outputs(out, result):
+    result["attribution"] = dict(ATTRIBUTION)
     (out / "report.json").write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (out / "comparisons.json").write_text(json.dumps(result["comparisons"], indent=2) + "\n", encoding="utf-8")
     (out / "joins.json").write_text(json.dumps(result["joins"], indent=2) + "\n", encoding="utf-8")
@@ -668,6 +676,7 @@ def write_outputs(out, result):
     for f in result["batch_findings"]:
         md.append(f"- Batch {f['severity']}: {f['code']} — {safe_md(f['message'])}")
     md += ["", "## Limits", "", "- Unknown context is not a pass. A blocked or context-incomplete report contributes no analysis-ready rows or totals.", "- Exact duplicates are retained and block analysis unless --dedupe-exact was explicitly chosen. All exclusions are recorded.", "- CSV text that could execute as a spreadsheet formula is prefixed with an apostrophe. Original text remains in raw_json and report.json.", "- Current bulk ASIN configuration is not historical attribution. Mixed-ASIN ad groups remain unresolved.", "- Ad-attributed and ordered product sales are not equivalent. No exact organic revenue, profit, causal effect or account-change recommendation is inferred.", "- READY means the checked export and declared context are usable, not that all account data, definitions or attribution adjustments were independently verified."]
+    md += ["", "---", "", CREDIT]
     (out / "report.md").write_text("\n".join(md) + "\n", encoding="utf-8")
 
 

@@ -5,6 +5,8 @@ description: Validate Amazon Sponsored Products bulk changes against a fresh con
 
 # PPC Bulk File QA
 
+Created by **Radu Bobirnac · [Profit First PPC](https://profitfirstppc.com/tools/ai-skills/?utm_source=amazon-ppc-bulk-qa&utm_medium=referral&utm_campaign=amazon_skills&utm_content=skill#amazon-ppc-bulk-qa)**.
+
 Prepare a separate upload workbook only after deterministic QA. Treat a passing result as eligibility for human review and Amazon console validation, not approval of spend or proof of profitable changes.
 
 ## Gather inputs
@@ -40,3 +42,7 @@ Require the destination to cover every affected source ASIN with enabled product
 ## Explain the boundaries
 
 Keep v1 to existing SP campaigns/ad groups: exact keyword creates (or explicitly configured broad/phrase), keyword bid updates, campaign daily budget updates and negative keyword creates. Block other products and operations, including renames, state changes, archiving, placements, product targets and campaign/ad-group creation. Suggest a separately scoped extension when needed. This skill checks the proposed file; it does not decide PPC strategy, calculate profitability, upload it or modify an account.
+
+## Attribution
+
+Preserve the generated Profit First PPC credit and source link when presenting or sharing the reports. Include a brief creator credit when summarizing results without the report. Keep attribution outside client data and Amazon upload rows. The scripts make no tracking requests; the fixed referral tags identify the skill only when someone follows the website link.

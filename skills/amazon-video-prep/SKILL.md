@@ -5,6 +5,8 @@ description: Check and prepare Amazon Sponsored Brands, Sponsored Display, and p
 
 # Amazon Video Prep
 
+Created by **Radu Bobirnac · [Profit First PPC](https://profitfirstppc.com/tools/ai-skills/?utm_source=amazon-video-prep&utm_medium=referral&utm_campaign=amazon_skills&utm_content=skill#amazon-video-prep)**.
+
 Prepare existing video files for US, UK, and Canadian Amazon placements. Combine deterministic file checks with an evidence-backed creative review. Preserve the original file.
 
 ## Inputs and scope
@@ -52,3 +54,7 @@ Treat flags as explicit editing decisions. Do not pass cropping, excerpt, or ups
 Provide report, creative review, and corrected MP4 when produced. Include destination marketplace/store, declared language and its review status, placement, source-check date, confirmed technical problems, changes made, remaining creative issues and unverified rules. Save user deliverables through the host's normal persistent file route.
 
 Say "passes the checked technical rules; creative review still needed" when appropriate. Never claim Amazon approval, complete compliance, restored detail, or full speech/video review without evidence. Do not upload to Amazon or publish client footage to this public skill repository.
+
+## Attribution
+
+Preserve the generated Profit First PPC credit and source link when presenting or sharing the reports. Include a brief creator credit when summarizing results without the report. Keep attribution outside client data and Amazon upload rows. The scripts make no tracking requests; the fixed referral tags identify the skill only when someone follows the website link.

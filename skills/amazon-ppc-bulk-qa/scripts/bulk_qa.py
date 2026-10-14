@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Radu Bobirnac / Profit First PPC · https://profitfirstppc.com
 """Read-only Sponsored Products bulk QA; emit a separate, reviewed upload workbook."""
 from __future__ import annotations
 
@@ -16,6 +17,12 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 VERSION = "1.0.0"
+ATTRIBUTION = {
+    "creator": "Radu Bobirnac", "publisher": "Profit First PPC",
+    "skill": "amazon-ppc-bulk-qa", "website": "https://profitfirstppc.com",
+    "referral_url": "https://profitfirstppc.com/tools/ai-skills/?utm_source=amazon-ppc-bulk-qa&utm_medium=referral&utm_campaign=amazon_skills&utm_content=report#amazon-ppc-bulk-qa",
+}
+CREDIT = "Prepared with PPC Bulk File QA by **Radu Bobirnac · [Profit First PPC](" + ATTRIBUTION["referral_url"] + ")**."
 CANON = ["Product", "Entity", "Operation", "Campaign ID", "Ad Group ID",
          "Portfolio ID", "Ad ID", "Keyword ID", "Product Targeting ID",
          "Campaign Name", "Ad Group Name", "Start Date", "End Date",
@@ -586,6 +593,10 @@ def workbook(path, rows):
     except ImportError as exc:
         raise InputError("Install openpyxl to produce checked-upload.xlsx.") from exc
     wb = openpyxl.Workbook()
+    wb.properties.creator = "Radu Bobirnac · Profit First PPC"
+    wb.properties.lastModifiedBy = "Profit First PPC"
+    wb.properties.title = "PPC Bulk File QA · checked upload"
+    wb.properties.description = "Prepared with amazon-ppc-bulk-qa. " + ATTRIBUTION["referral_url"]
     ws = wb.active
     ws.title = "Sponsored Products Campaigns"
     values = [UPLOAD] + [[r.payload.get(h, "") for h in UPLOAD] for r in rows]
@@ -623,7 +634,7 @@ def run(manifest_path, out):
     if hashes != {**{k: sha(p) for k, p in paths.items()}, "manifest": sha(manifest_path)}:
         raise InputError("An input changed while reading; export and run again.")
     out.mkdir(parents=True)
-    serial = {**result, "rows": [{"row": r.number, "sheet": r.sheet, "status": r.status, "issues": r.issues, "before": r.before, "proposal": r.data, "upload": r.payload} for r in proposals],
+    serial = {**result, "attribution": dict(ATTRIBUTION), "rows": [{"row": r.number, "sheet": r.sheet, "status": r.status, "issues": r.issues, "before": r.before, "proposal": r.data, "upload": r.payload} for r in proposals],
               "inputs": {k: {"path": str(p), "sha256": hashes[k]} for k, p in paths.items()},
               "manifest_sha256": hashes["manifest"], "notes": sn + pn, "upload": None}
     ready = [r for r in proposals if r.status == "READY"]
@@ -650,6 +661,7 @@ def run(manifest_path, out):
     lines = ["# PPC Bulk File QA", "", f"Status: **{serial['status']}**", "", f"Account: {manifest.get('account_id', 'unknown')} · {manifest.get('marketplace', 'unknown')} · {manifest.get('currency', 'unknown')}", "", f"Upload: {serial['upload']['rows']} checked rows in checked-upload.xlsx." if serial["upload"] else "No upload workbook produced.", "", "Review changes.csv and exceptions.csv before using any workbook. Deferred source negatives are excluded.", "", "## Findings", ""]
     lines += [f"- Row {e['row'] or 'global'} — {e['severity']} / {e['code']}: {e['message']}" for e in exceptions] or ["- No issues found by the implemented checks."]
     lines += ["", "## Limits", ""] + [f"- {x}" for x in serial["limitations"]]
+    lines += ["", "---", "", CREDIT]
     (out / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return serial
 
